@@ -141,4 +141,12 @@ namespace :spotlight do
       e.reindex_later
     end
   end
+
+  task db_ready: :environment do
+    if I18n::Backend::ActiveRecord::Translation.table_exists?
+      exit 0
+    else
+      exit 1
+    end
+  end
 end

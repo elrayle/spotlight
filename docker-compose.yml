@@ -1,0 +1,80 @@
+version: '3.7'
+
+services:
+  web:
+    build:
+      context: .
+    image: spotlight
+    env_file:
+      - .env
+    user: root
+    volumes:
+      - .:/spotlight/engine
+    ports:
+      - "3000:3000"
+    depends_on:
+      - chrome
+      - db_migrate
+      - solr
+    stdin_open: true
+    tty: true
+    networks:
+      - spotlight
+
+  solr:
+    image: solr:8.6.3
+    ports:
+      - 8983:8983
+    command:
+      - sh
+      - "-c"
+      - "solr-precreate spotlight /opt/solr/server/configsets/spotlightconf"
+    volumes:
+      - spotlight_solr:/opt/solr/server/solr
+      - ./lib/generators/spotlight/templates/solr/config:/opt/solr/server/configsets/spotlightconf
+    networks:
+      - spotlight
+
+  db_migrate:
+    image: spotlight
+    env_file:
+      - .env
+    user: root
+    entrypoint: sh -c '/spotlight/engine/bin/db-migrate-seed.sh'
+    depends_on:
+      - postgres
+    volumes:
+      - .:/spotlight/engine
+    networks:
+      - spotlight
+
+  postgres:
+    image: postgres:latest
+    restart: always
+    environment:
+      - POSTGRES_USER=spotlight_user
+      - POSTGRES_PASSWORD=spotlight_password
+      - POSTGRES_DB=spotlight
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - spotlight_db:/var/lib/postgresql/data
+    networks:
+      - spotlight
+
+  chrome:
+    image: selenium/standalone-chrome:3.141
+    networks:
+      - spotlight
+
+volumes:
+  spotlight_db:
+  spotlight_redis:
+  spotlight_solr:
+
+networks:
+  spotlight:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-spotlight
